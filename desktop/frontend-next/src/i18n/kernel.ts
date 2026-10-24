@@ -446,6 +446,11 @@ const SAID: Record<string, string> = {
   // ── 壁纸 ─────────────────────────────────────────────────────────
   "wallpaper.unsupported_type": "不支持该格式，请改用图片（PNG、JPEG、WebP、AVIF、GIF）或视频（MP4、WebM）",
   "wallpaper.empty": "图片内容为空",
+  "wallpaper.scene_too_large": "场景包过大，请压缩至 {limit} MB 以内",
+  "wallpaper.scene_invalid": "无法读取这个 Wallpaper Engine 场景",
+  "wallpaper.scene_unsupported": "只支持 Scene 类型的 Wallpaper Engine 壁纸",
+  "wallpaper.scene_no_image": "这个场景里没有可用的主图",
+  "wallpaper.audio_unsupported": "不支持该音频格式",
 
   // ── 来不及了 ──────────────────────────────────────
   "steer.already_applied": "该条已发送给模型，无法撤回",

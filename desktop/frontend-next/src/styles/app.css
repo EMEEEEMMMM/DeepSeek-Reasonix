@@ -5614,6 +5614,8 @@
   .compose .row { --m-step: 30ms }
 }
 
+.wvol-pop { max-height: 0; opacity: 0; overflow: hidden; transition: max-height var(--t-panel) var(--ease), opacity var(--t-panel) var(--ease) }
+.wvol:hover .wvol-pop, .wvol:focus-within .wvol-pop { max-height: 108px; opacity: 1 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-delay: 0s !important;

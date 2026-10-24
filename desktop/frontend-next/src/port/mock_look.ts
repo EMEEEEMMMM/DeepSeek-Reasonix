@@ -1,5 +1,5 @@
 import { HttpError } from "./port";
-import type { Appearance } from "./port";
+import type { Appearance, SceneFolder } from "./port";
 import { STORAGE as LANG } from "../i18n";
 
 // The appearance half of the fixture. It is held in memory rather than written
@@ -48,5 +48,33 @@ export class MockLook {
 
   async clearWallpaper(): Promise<void> {
     this.look = { ...this.look, wallpaper: undefined };
+  }
+
+  async uploadScene(folder: SceneFolder): Promise<Appearance> {
+    if (!folder.project.size || !folder.scene.size) {
+      throw new HttpError(422, "the folder is incomplete", { code: "wallpaper.scene_invalid" });
+    }
+    let title = "";
+    try {
+      title = (JSON.parse(await folder.project.text()) as { title?: string }).title?.trim() ?? "";
+    } catch {
+      // A malformed project still leaves a scene the fixture can show.
+    }
+    this.look = {
+      ...this.look,
+      wallpaper: {
+        url: URL.createObjectURL(folder.preview ?? folder.scene),
+        kind: "scene",
+        title: title || "Wallpaper Engine scene",
+        parallax: 0.02,
+        muted: false,
+        volume: 1,
+        opacity: 0.5,
+        dim: 0.55,
+        focusX: 0.5,
+        focusY: 0.5,
+      },
+    };
+    return this.appearance();
   }
 }

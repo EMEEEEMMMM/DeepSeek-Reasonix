@@ -268,6 +268,11 @@ export const EN_KERNEL: Record<string, string> = {
   "不支持该格式，请改用图片（PNG、JPEG、WebP、AVIF、GIF）或视频（MP4、WebM）":
     "That format is not supported; use an image (PNG, JPEG, WebP, AVIF, GIF) or a video (MP4, WebM)",
   "图片内容为空": "The image is empty",
+  "场景包过大，请压缩至 {limit} MB 以内": "That scene package is too large — bring it under {limit} MB",
+  "无法读取这个 Wallpaper Engine 场景": "This Wallpaper Engine scene could not be read",
+  "只支持 Scene 类型的 Wallpaper Engine 壁纸": "Only Scene wallpapers from Wallpaper Engine are supported",
+  "这个场景里没有可用的主图": "This scene has no backdrop to show",
+  "不支持该音频格式": "That audio format is not supported",
   "压缩阈值未能保存：{detail}": "The compaction threshold was not saved: {detail}",
   "本次请求未包含阈值，未做任何修改": "The request carried no threshold, so nothing changed",
   "{host} 上的内核没有应答，连接可能断了": "The kernel on {host} is not answering — the connection may be down",

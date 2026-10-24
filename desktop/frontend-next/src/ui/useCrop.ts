@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
  *  cannot move a pixel however far its slider is dragged. It measures the
  *  preview, which is drawn at the window's shape, rather than assuming one.
  *  Both axes count as free until the image decodes: never disable on a guess. */
-export function useCrop(url: string | undefined, kind: "image" | "video" | undefined, box: HTMLElement | null) {
+export function useCrop(url: string | undefined, kind: "image" | "video" | "scene" | undefined, box: HTMLElement | null) {
   const [image, setImage] = useState(0);
   const [frame, setFrame] = useState(0);
 

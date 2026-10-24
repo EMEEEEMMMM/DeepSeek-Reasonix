@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -27,10 +28,16 @@ var wallpaperTypes = map[string]string{
 	"video/webm": ".webm",
 }
 
+var audioTypes = map[string]string{
+	"audio/mpeg": ".mp3",
+	"audio/flac": ".flac",
+}
+
 func (s *Server) registerAppearanceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /appearance", s.appearance)
 	mux.HandleFunc("POST /appearance", s.saveAppearance)
 	mux.HandleFunc("POST /appearance/wallpaper", s.uploadWallpaper)
+	mux.HandleFunc("POST /appearance/wallpaper/scene", s.uploadWallpaperScene)
 	mux.HandleFunc("DELETE /appearance/wallpaper", s.clearWallpaper)
 	mux.HandleFunc("GET /appearance/wallpaper/{name}", s.wallpaperAsset)
 }
@@ -66,18 +73,29 @@ type wallpaperView struct {
 	// URL carries the content hash in its name, so the bytes at an address
 	// never change and the page needs no cache buster.
 	URL string `json:"url"`
-	// Kind is "image" or "video". The page draws a picture as a background
-	// and a video as an element, and the stored name is all it could read this
-	// from otherwise; the kernel already decided it from the type.
-	Kind    string  `json:"kind"`
-	Opacity float64 `json:"opacity"`
-	Dim     float64 `json:"dim"`
-	FocusX  float64 `json:"focusX"`
-	FocusY  float64 `json:"focusY"`
+	// Kind is "image", "video" or "scene"; the kernel decides it from the
+	// stored type so the page never infers a renderer from a name.
+	Kind     string  `json:"kind"`
+	Title    string  `json:"title,omitempty"`
+	Audio    string  `json:"audio,omitempty"`
+	Parallax float64 `json:"parallax,omitempty"`
+	Muted    bool    `json:"muted,omitempty"`
+	Volume   float64 `json:"volume"`
+	Opacity  float64 `json:"opacity"`
+	Dim      float64 `json:"dim"`
+	FocusX   float64 `json:"focusX"`
+	FocusY   float64 `json:"focusY"`
 }
 
 func appearanceDir() string {
 	return filepath.Join(config.MemoryUserDir(), "appearance")
+}
+
+func wallpaperVolume(w config.WallpaperConfig) float64 {
+	if w.Volume == nil {
+		return 1
+	}
+	return clamp01(*w.Volume)
 }
 
 func viewOf(a config.AppearanceConfig, language, width string) appearanceView {
@@ -92,13 +110,24 @@ func viewOf(a config.AppearanceConfig, language, width string) appearanceView {
 		Width:     width,
 	}
 	if a.Wallpaper.File != "" {
+		kind := wallpaperKind(a.Wallpaper.File)
+		if a.Wallpaper.Kind == "scene" {
+			kind = "scene"
+		}
 		out.Wallpaper = &wallpaperView{
-			URL:     "/appearance/wallpaper/" + a.Wallpaper.File,
-			Kind:    wallpaperKind(a.Wallpaper.File),
-			Opacity: a.Wallpaper.Opacity,
-			Dim:     a.Wallpaper.Dim,
-			FocusX:  a.Wallpaper.FocusX,
-			FocusY:  a.Wallpaper.FocusY,
+			URL:      "/appearance/wallpaper/" + a.Wallpaper.File,
+			Kind:     kind,
+			Title:    a.Wallpaper.Title,
+			Parallax: a.Wallpaper.Parallax,
+			Muted:    a.Wallpaper.Muted,
+			Volume:   wallpaperVolume(a.Wallpaper),
+			Opacity:  a.Wallpaper.Opacity,
+			Dim:      a.Wallpaper.Dim,
+			FocusX:   a.Wallpaper.FocusX,
+			FocusY:   a.Wallpaper.FocusY,
+		}
+		if a.Wallpaper.Audio != "" {
+			out.Wallpaper.Audio = "/appearance/wallpaper/" + a.Wallpaper.Audio
 		}
 	}
 	return out
@@ -117,17 +146,19 @@ func (s *Server) appearance(w http.ResponseWriter, r *http.Request) {
 // that got away, and refusing the whole save would lose the rest of it.
 func (s *Server) saveAppearance(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Language string  `json:"language"`
-		Zoom     float64 `json:"zoom"`
-		ReadSize float64 `json:"readSize"`
-		TextSize float64 `json:"textSize"`
-		FontUI   string  `json:"fontUi"`
-		FontMono string  `json:"fontMono"`
-		Width    string  `json:"width"`
-		Opacity  float64 `json:"opacity"`
-		Dim      float64 `json:"dim"`
-		FocusX   float64 `json:"focusX"`
-		FocusY   float64 `json:"focusY"`
+		Language string   `json:"language"`
+		Zoom     float64  `json:"zoom"`
+		ReadSize float64  `json:"readSize"`
+		TextSize float64  `json:"textSize"`
+		FontUI   string   `json:"fontUi"`
+		FontMono string   `json:"fontMono"`
+		Width    string   `json:"width"`
+		Opacity  float64  `json:"opacity"`
+		Dim      float64  `json:"dim"`
+		FocusX   float64  `json:"focusX"`
+		FocusY   float64  `json:"focusY"`
+		Muted    bool     `json:"muted"`
+		Volume   *float64 `json:"volume"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		badBody(w)
@@ -161,6 +192,11 @@ func (s *Server) saveAppearance(w http.ResponseWriter, r *http.Request) {
 	a.Wallpaper.Dim = clamp01(body.Dim)
 	a.Wallpaper.FocusX = clamp01(body.FocusX)
 	a.Wallpaper.FocusY = clamp01(body.FocusY)
+	a.Wallpaper.Muted = body.Muted
+	if body.Volume != nil {
+		volume := clamp01(*body.Volume)
+		a.Wallpaper.Volume = &volume
+	}
 	if err := edit.SaveTo(config.UserConfigPath()); err != nil {
 		writeErr(w, http.StatusInternalServerError, err)
 		return
@@ -179,15 +215,22 @@ func (s *Server) uploadWallpaper(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	edit := config.LoadForEdit(config.UserConfigPath())
-	prev := edit.Desktop.Appearance.Wallpaper.File
-	edit.Desktop.Appearance.Wallpaper.File = name
+	paper := &edit.Desktop.Appearance.Wallpaper
+	prev, prevAudio := paper.File, paper.Audio
+	paper.File = name
+	paper.Kind = ""
+	paper.Title = ""
+	paper.Audio = ""
+	paper.Parallax = 0
+	paper.Muted = false
+	paper.Volume = nil
 	// First picture: give it settings it can be seen at. Replacing one keeps
 	// whatever the user had already dialled in.
 	if prev == "" {
-		edit.Desktop.Appearance.Wallpaper.Opacity = 0.5
-		edit.Desktop.Appearance.Wallpaper.Dim = 0.55
-		edit.Desktop.Appearance.Wallpaper.FocusX = 0.5
-		edit.Desktop.Appearance.Wallpaper.FocusY = 0.5
+		paper.Opacity = 0.5
+		paper.Dim = 0.55
+		paper.FocusX = 0.5
+		paper.FocusY = 0.5
 	}
 	if err := edit.SaveTo(config.UserConfigPath()); err != nil {
 		writeErr(w, http.StatusInternalServerError, err)
@@ -196,12 +239,15 @@ func (s *Server) uploadWallpaper(w http.ResponseWriter, r *http.Request) {
 	if prev != "" && prev != name {
 		_ = os.Remove(filepath.Join(appearanceDir(), prev))
 	}
+	if prevAudio != "" {
+		_ = os.Remove(filepath.Join(appearanceDir(), prevAudio))
+	}
 	writeJSON(w, viewOf(edit.Desktop.Appearance, edit.DesktopLanguage(), edit.DesktopConversationWidth()))
 }
 
 func (s *Server) clearWallpaper(w http.ResponseWriter, r *http.Request) {
 	edit := config.LoadForEdit(config.UserConfigPath())
-	prev := edit.Desktop.Appearance.Wallpaper.File
+	prev, prevAudio := edit.Desktop.Appearance.Wallpaper.File, edit.Desktop.Appearance.Wallpaper.Audio
 	edit.Desktop.Appearance.Wallpaper = config.WallpaperConfig{}
 	if err := edit.SaveTo(config.UserConfigPath()); err != nil {
 		writeErr(w, http.StatusInternalServerError, err)
@@ -209,6 +255,9 @@ func (s *Server) clearWallpaper(w http.ResponseWriter, r *http.Request) {
 	}
 	if prev != "" {
 		_ = os.Remove(filepath.Join(appearanceDir(), prev))
+	}
+	if prevAudio != "" {
+		_ = os.Remove(filepath.Join(appearanceDir(), prevAudio))
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -219,7 +268,12 @@ func (s *Server) clearWallpaper(w http.ResponseWriter, r *http.Request) {
 func (s *Server) wallpaperAsset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	cfg, err := config.Load()
-	if err != nil || cfg.Desktop.Appearance.Wallpaper.File != name {
+	if err != nil {
+		notFound(w, "wallpaper", name)
+		return
+	}
+	paper := cfg.Desktop.Appearance.Wallpaper
+	if paper.File != name && paper.Audio != name {
 		notFound(w, "wallpaper", name)
 		return
 	}
@@ -288,8 +342,36 @@ func wallpaperKind(name string) string {
 	return "image"
 }
 
+func writeAudio(mime string, raw []byte) (string, error) {
+	ext, ok := audioTypes[strings.ToLower(strings.TrimSpace(mime))]
+	if !ok {
+		return "", refusal(http.StatusUnprocessableEntity, "wallpaper.audio_unsupported", errors.New("unsupported audio type"), nil)
+	}
+	if len(raw) == 0 {
+		return "", refusal(http.StatusUnprocessableEntity, "wallpaper.empty", errors.New("the audio is empty"), nil)
+	}
+	if len(raw) > maxSceneAsset {
+		return "", refusal(http.StatusUnprocessableEntity, "wallpaper.scene_too_large", fmt.Errorf("audio is larger than %d MB", maxSceneAsset>>20), map[string]any{"limit": maxSceneAsset >> 20})
+	}
+	sum := sha256.Sum256(raw)
+	name := hex.EncodeToString(sum[:8]) + ext
+	dir := appearanceDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), raw, 0o644); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
 func contentTypeOf(name string) string {
 	for mime, ext := range wallpaperTypes {
+		if strings.HasSuffix(name, ext) {
+			return mime
+		}
+	}
+	for mime, ext := range audioTypes {
 		if strings.HasSuffix(name, ext) {
 			return mime
 		}

@@ -29,6 +29,7 @@ import { EscStopSetting } from "./EscStopSetting";
 import { PageSleepSetting } from "./PageSleepSetting";
 import { ThemeImport } from "./ThemeImport";
 import { ThemeRemove } from "./ThemeRemove";
+import { WallpaperSceneImport } from "./WallpaperSceneImport";
 import { useThemeInventory } from "./useThemeInventory";
 
 // "" follows the machine; the rest are explicit, the same shape the light/dark
@@ -413,6 +414,7 @@ export function Appearance({ port, theme, onTheme, contrast, onContrast, weight,
             </span>
             {t(look.wallpaper ? "换一张…" : "选择图片或视频…")}
           </button>
+          <WallpaperSceneImport port={port} look={look} onLook={onLook} setPaper={setPaper} onError={setFailed} />
           {/* Composited the way the window is: the picture, then page colour
               over it. The scrim fades out with the strength, or a picture
               turned down to nothing would still be sitting under a dark wash. */}

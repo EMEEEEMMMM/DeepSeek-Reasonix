@@ -137,6 +137,24 @@ func renderAppearanceSection(b *strings.Builder, a AppearanceConfig) {
 	}
 	b.WriteString("\n[desktop.appearance.wallpaper]\n")
 	fmt.Fprintf(b, "file = %q   # a name inside the appearance directory, never a path\n", paper)
+	if a.Wallpaper.Kind != "" {
+		fmt.Fprintf(b, "kind = %q   # scene keeps the extracted backdrop in file\n", a.Wallpaper.Kind)
+	}
+	if a.Wallpaper.Title != "" {
+		fmt.Fprintf(b, "title = %q\n", a.Wallpaper.Title)
+	}
+	if a.Wallpaper.Audio != "" {
+		fmt.Fprintf(b, "audio = %q   # a name inside the appearance directory\n", a.Wallpaper.Audio)
+	}
+	if a.Wallpaper.Parallax != 0 {
+		fmt.Fprintf(b, "parallax = %g   # pointer parallax for a scene, 0..0.2\n", a.Wallpaper.Parallax)
+	}
+	if a.Wallpaper.Muted {
+		b.WriteString("muted = true\n")
+	}
+	if a.Wallpaper.Volume != nil {
+		fmt.Fprintf(b, "volume = %g   # 0..1; soundtrack volume\n", *a.Wallpaper.Volume)
+	}
 	fmt.Fprintf(b, "opacity = %g   # at rest, 0..1\n", a.Wallpaper.Opacity)
 	fmt.Fprintf(b, "dim = %g   # scrim of page colour over it, 0..1\n", a.Wallpaper.Dim)
 	fmt.Fprintf(b, "focus_x = %g   # 0..1, the point that survives cropping\n", a.Wallpaper.FocusX)

@@ -55,6 +55,17 @@ describe("an upload past the kernel's cap is refused before it is read", () => {
     expect(calls[0].init.body).toBe(big);
   });
 
+  it("scene folders, before the package is read", async () => {
+    const fetched = noNetwork();
+    const read = vi.fn(async () => new ArrayBuffer(0));
+    const err = await new SsePort("", "r1")
+      .uploadScene({ project: sized(1, read), scene: sized(200, read) })
+      .catch((e) => e);
+    expect(err.reason).toMatchObject({ code: "wallpaper.scene_too_large", params: { limit: 32 } });
+    expect(read).not.toHaveBeenCalled();
+    expect(fetched).not.toHaveBeenCalled();
+  });
+
   it("theme packs, counting every file picked", async () => {
     const fetched = noNetwork();
     const read = vi.fn(async () => new ArrayBuffer(0));

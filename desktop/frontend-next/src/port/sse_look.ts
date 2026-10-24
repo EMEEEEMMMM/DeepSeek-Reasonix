@@ -1,5 +1,6 @@
 import { SseHttp } from "./sse_http";
-import type { Appearance } from "./port";
+import { base64Of, guardUpload, tooLarge, UPLOAD_LIMIT_MB } from "./upload";
+import type { Appearance, SceneFolder } from "./port";
 
 // The appearance half of the port. Chained the way the fixture's faces are, so
 // SsePort satisfies AgentPort in one declaration and each subject keeps its own
@@ -21,6 +22,20 @@ export class SseLook extends SseHttp {
       dim: look.wallpaper?.dim ?? 0,
       focusX: look.wallpaper?.focusX ?? 0.5,
       focusY: look.wallpaper?.focusY ?? 0.5,
+      muted: look.wallpaper?.muted ?? false,
+      volume: look.wallpaper?.volume ?? 1,
+    });
+  }
+
+  async uploadScene(folder: SceneFolder) {
+    guardUpload(folder.scene.size, UPLOAD_LIMIT_MB.scene, tooLarge("wallpaper.scene_too_large", "limit"));
+    if (folder.preview) {
+      guardUpload(folder.preview.size, UPLOAD_LIMIT_MB.scene, tooLarge("wallpaper.scene_too_large", "limit"));
+    }
+    return this.post0<Appearance>("/appearance/wallpaper/scene", {
+      project: await base64Of(folder.project),
+      scene: await base64Of(folder.scene),
+      preview: folder.preview ? await base64Of(folder.preview) : "",
     });
   }
 

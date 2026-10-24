@@ -182,11 +182,19 @@ type AppearanceConfig struct {
 // the appearance directory, not a path: the bytes live where the app can find
 // them after the picture the user picked has moved or been deleted.
 type WallpaperConfig struct {
-	File    string  `toml:"file"`
-	Opacity float64 `toml:"opacity"` // at rest, 0..1
-	Dim     float64 `toml:"dim"`     // scrim of page colour over it, 0..1
-	FocusX  float64 `toml:"focus_x"` // 0..1, the point that survives cropping
-	FocusY  float64 `toml:"focus_y"` // 0..1
+	File string `toml:"file"`
+	// A scene keeps the extracted backdrop in File and the soundtrack beside it.
+	Kind     string  `toml:"kind,omitempty"`
+	Title    string  `toml:"title,omitempty"`
+	Audio    string  `toml:"audio,omitempty"`
+	Parallax float64 `toml:"parallax,omitempty"`
+	Muted    bool    `toml:"muted,omitempty"`
+	// 0..1; nil means the scene's default of 1.
+	Volume  *float64 `toml:"volume,omitempty"`
+	Opacity float64  `toml:"opacity"` // at rest, 0..1
+	Dim     float64  `toml:"dim"`     // scrim of page colour over it, 0..1
+	FocusX  float64  `toml:"focus_x"` // 0..1, the point that survives cropping
+	FocusY  float64  `toml:"focus_y"` // 0..1
 }
 
 // WorkspaceLimit is how many projects the sidebar may remember; zero is no limit.
