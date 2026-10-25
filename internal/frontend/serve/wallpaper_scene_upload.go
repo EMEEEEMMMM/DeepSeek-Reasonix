@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"reasonix/internal/contract/config"
 )
@@ -120,14 +121,7 @@ func (s *Server) uploadWallpaperScene(w http.ResponseWriter, r *http.Request) {
 		_ = os.Remove(filepath.Join(appearanceDir(), prev))
 	}
 	for _, old := range prevAudios {
-		keep := false
-		for _, written := range audioNames {
-			if old == written {
-				keep = true
-				break
-			}
-		}
-		if !keep {
+		if !slices.Contains(audioNames, old) {
 			_ = os.Remove(filepath.Join(appearanceDir(), old))
 		}
 	}

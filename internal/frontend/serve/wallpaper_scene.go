@@ -284,6 +284,9 @@ func imageFromTEX(raw []byte) ([]byte, string, error) {
 			}
 		}
 	}
+	if out, mime, ok := dxtFromTEX(raw); ok {
+		return out, mime, nil
+	}
 	if start := bytes.Index(raw, jpegSignature); start >= 0 {
 		rest := raw[start:]
 		cfg, err := jpeg.DecodeConfig(bytes.NewReader(rest))
